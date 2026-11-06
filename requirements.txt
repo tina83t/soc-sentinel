@@ -1,0 +1,8 @@
+# Runtime requirements
+# The core CLI pipeline uses only Python standard library modules.
+
+# Web Dashboard (Optional UI):
+streamlit>=1.30.0
+
+# Development / testing dependencies (optional)
+# pytest>=7.0.0  # Uncomment if you prefer pytest for test execution

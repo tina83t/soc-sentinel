@@ -1,0 +1,48 @@
+{
+  "known_malicious_ips": {
+    "198.51.100.45": {
+      "reputation": "malicious",
+      "threat_category": "Brute Force / Scanner",
+      "confidence": 95,
+      "country": "RU"
+    },
+    "203.0.113.88": {
+      "reputation": "malicious",
+      "threat_category": "C2 Server / Emotet",
+      "confidence": 98,
+      "country": "KP"
+    },
+    "192.0.2.14": {
+      "reputation": "suspicious",
+      "threat_category": "Tor Exit Node",
+      "confidence": 80,
+      "country": "RO"
+    }
+  },
+  "privileged_accounts": [
+    "root",
+    "administrator",
+    "admin",
+    "svc_backup",
+    "domain_admin",
+    "sec_ops",
+    "db_admin"
+  ],
+  "critical_hosts": [
+    "dc01.corp.internal",
+    "dc02.corp.internal",
+    "db-prod-primary.corp.internal",
+    "fin-vault.corp.internal",
+    "pki-root.corp.internal"
+  ],
+  "suspicious_process_patterns": [
+    "-enc",
+    "-encodedcommand",
+    "iex",
+    "invoke-expression",
+    "downloadstring",
+    "bypass",
+    "mimikatz",
+    "certutil -urlcache"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "alert_id": "ALT-2026-003",
+  "timestamp": "2026-11-02T08:35:40Z",
+  "event_type": "Privileged Account Anomalous Access",
+  "source_ip": "10.0.12.8",
+  "destination_ip": "10.0.0.5",
+  "username": "domain_admin",
+  "hostname": "dc01.corp.internal",
+  "description": "Domain Administrator interactive logon observed outside maintenance window targeting Domain Controller DC01.",
+  "severity": "HIGH",
+  "event_source": "Windows Active Directory Audit",
+  "additional_context": {
+    "logon_type": 10,
+    "workstation_name": "wkst-dev-09",
+    "privilege_attributes": ["SeDebugPrivilege", "SeTcbPrivilege"]
+  }
+}

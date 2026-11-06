@@ -1,0 +1,16 @@
+{
+  "alert_id": "ALT-2026-004",
+  "timestamp": "2026-11-02T08:50:02Z",
+  "event_type": "Routine System Event",
+  "source_ip": "10.0.5.21",
+  "destination_ip": "10.0.0.2",
+  "username": "local_user",
+  "hostname": "wkst-hr-011.corp.internal",
+  "description": "Routine scheduled print spooler service restart executed successfully via system maintenance task.",
+  "severity": "LOW",
+  "event_source": "Windows System EventLog",
+  "additional_context": {
+    "service_name": "Spooler",
+    "event_code": 7036
+  }
+}

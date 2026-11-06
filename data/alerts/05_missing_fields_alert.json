@@ -1,0 +1,12 @@
+{
+  "alert_id": "ALT-2026-005",
+  "timestamp": "2026-11-02T09:01:15Z",
+  "event_type": "Unclassified Network Anomaly",
+  "source_ip": null,
+  "destination_ip": "10.0.1.100",
+  "username": "",
+  "hostname": "unknown-host",
+  "description": "Port scan activity reported by legacy sensor with incomplete telemetry headers.",
+  "severity": "MEDIUM",
+  "event_source": "Legacy Snort Sensor"
+}

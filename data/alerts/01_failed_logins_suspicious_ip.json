@@ -1,0 +1,16 @@
+{
+  "alert_id": "ALT-2026-001",
+  "timestamp": "2026-11-02T08:14:22Z",
+  "event_type": "Failed Authentication Spike",
+  "source_ip": "198.51.100.45",
+  "destination_ip": "10.0.1.50",
+  "username": "tina.adams",
+  "hostname": "vpn-gateway-01.corp.internal",
+  "description": "50 consecutive failed SSH/VPN authentication attempts detected within 60 seconds from an external IP.",
+  "severity": "HIGH",
+  "event_source": "FortiGate VPN",
+  "additional_context": {
+    "failed_attempts_count": 50,
+    "target_service": "VPN-SSL"
+  }
+}

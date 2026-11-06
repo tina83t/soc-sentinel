@@ -1,0 +1,45 @@
+{
+  "base_severity_scores": {
+    "CRITICAL": 40,
+    "HIGH": 30,
+    "MEDIUM": 20,
+    "LOW": 10,
+    "INFORMATIONAL": 5
+  },
+  "risk_factor_weights": {
+    "threat_intel_match": {
+      "weight": 30,
+      "description": "Source IP matched known malicious or suspicious threat intelligence feeds"
+    },
+    "privileged_user": {
+      "weight": 20,
+      "description": "Activity involves a privileged, service, or administrative user account"
+    },
+    "critical_host": {
+      "weight": 15,
+      "description": "Target hostname is identified as a mission-critical asset (e.g. Domain Controller, Database)"
+    },
+    "suspicious_process_powershell": {
+      "weight": 25,
+      "description": "Execution of suspicious PowerShell commands, obfuscation, or download cradles"
+    },
+    "brute_force_failed_logins": {
+      "weight": 25,
+      "description": "Multiple repeated authentication failures from the same source"
+    },
+    "public_ip_inbound": {
+      "weight": 10,
+      "description": "External public IP connection observed reaching internal enterprise network"
+    },
+    "missing_critical_data": {
+      "weight": 15,
+      "description": "Alert has missing fields or degraded data quality preventing full verification"
+    }
+  },
+  "thresholds": {
+    "critical": 80,
+    "high": 60,
+    "medium": 30,
+    "low": 0
+  }
+}
