@@ -128,8 +128,9 @@ class TestSOCServiceBridge(unittest.TestCase):
         self.assertEqual(prog_inc["status"], "IN_PROGRESS")
 
         # Resolve
-        res_inc = self.service.resolve_incident(inc_id, resolution_reason="Legitimate admin change window", actor="analyst_bob")
+        res_inc = self.service.resolve_incident(inc_id, resolution_reason="Legitimate admin change window", verdict="BENIGN_POSITIVE", actor="analyst_bob")
         self.assertEqual(res_inc["status"], "RESOLVED")
+        self.assertEqual(res_inc["verdict"], "BENIGN_POSITIVE")
 
         # Reopen
         reopened = self.service.reopen_incident(inc_id, reason="Unscheduled session resumed", actor="LEAD_ALICE")

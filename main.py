@@ -45,7 +45,8 @@ def print_incident_summary(incidents: List[Dict[str, Any]]):
 def main():
     parser = argparse.ArgumentParser(description="SOC Alert Triage & Response Automation")
     parser.add_argument("--file", type=str, help="Path to a single alert JSON file")
-    parser.add_argument("--dir", type=str, default="data/alerts", help="Directory containing alert JSON files")
+    parser.add_argument("--dir", type=str, default=None, help="Directory containing alert JSON files")
+    parser.add_argument("--siem-feed", type=str, help="Path to a mock SIEM feed file or directory")
     parser.add_argument("--base-dir", type=str, default=".", help="Base directory of the project")
     parser.add_argument("--no-trace", action="store_true", help="Disable execution trace terminal output")
     args = parser.parse_args()
@@ -58,8 +59,14 @@ def main():
     if args.file:
         print(f"[*] Processing single alert file: {args.file}\n")
         incidents = pipeline.process_file(args.file, show_trace=show_trace)
+    elif args.siem_feed:
+        feed_source = args.siem_feed
+        if not os.path.isabs(feed_source):
+            feed_source = os.path.join(args.base_dir, feed_source)
+        print(f"[*] Ingesting alerts from mock SIEM feed: {feed_source}\n")
+        incidents = pipeline.ingest_from_siem(source_path=feed_source, show_trace=show_trace)
     else:
-        target_dir = args.dir
+        target_dir = args.dir or "data/alerts"
         if not os.path.isabs(target_dir):
             target_dir = os.path.join(args.base_dir, target_dir)
         print(f"[*] Batch processing alerts from directory: {target_dir}\n")

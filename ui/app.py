@@ -25,6 +25,7 @@ from ui.styles.theme import apply_soc_theme, clean_html
 from ui.views.overview_view import render_overview_view
 from ui.views.alerts_view import render_alerts_view
 from ui.views.playbook_view import render_playbook_center_view
+from ui.views.pipeline_flow_view import render_pipeline_flow_view
 
 
 NAVIGATION_PAGES = [
@@ -203,6 +204,8 @@ def main() -> None:
         render_alerts_view(st.session_state.soc_service, st)
     elif active_page == "Playbook Center":
         render_playbook_center_view(st.session_state.soc_service, st)
+    elif active_page == "Execution & Audit":
+        render_pipeline_flow_view(st.session_state.soc_service, st)
     else:
         render_page_placeholder(active_page)
 

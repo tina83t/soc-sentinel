@@ -89,15 +89,22 @@ class TestExecutionTracer(unittest.TestCase):
                 shutil.rmtree(temp_dir)
 
     def test_pipeline_failed_file_trace(self):
-        pipeline = SOCTriagePipeline()
-        incidents = pipeline.process_file("non_existent_path.json", show_trace=False)
-        self.assertEqual(len(incidents), 0)
+        temp_dir = tempfile.mkdtemp(prefix="tracer_failed_test_")
+        try:
+            pipeline = SOCTriagePipeline(base_dir=temp_dir)
+            incidents = pipeline.process_file("non_existent_path.json", show_trace=False)
+            self.assertEqual(len(incidents), 0)
 
-        latest_trace = pipeline.tracer.get_latest_trace()
-        self.assertIsNotNone(latest_trace)
-        self.assertEqual(latest_trace.playbook_id, "ABORTED")
-        self.assertEqual(latest_trace.steps[0].status, "FAILED")
-        self.assertIn("File not found", latest_trace.steps[0].error)
+            latest_trace = pipeline.tracer.get_latest_trace()
+            self.assertIsNotNone(latest_trace)
+            self.assertEqual(latest_trace.playbook_id, "ABORTED")
+            self.assertEqual(latest_trace.steps[0].status, "FAILED")
+            self.assertIn("File not found", latest_trace.steps[0].error)
+        finally:
+            if hasattr(pipeline, "audit_logger") and pipeline.audit_logger:
+                pipeline.audit_logger.close()
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
 
 
 if __name__ == "__main__":

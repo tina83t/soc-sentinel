@@ -1,0 +1,80 @@
+playbook_id: "PB-CRIT-001"
+name: "PB-CRIT-001: Critical Threat Automated Containment & Escalation"
+short_name: "Critical Threat Automated Containment & Escalation"
+target_tier: "CRITICAL"
+condition: "risk_score >= 80"
+min_risk_score: 80
+max_risk_score: null
+recommended_status: "URGENT_ATTENTION_REQUIRED"
+matched_condition_template: "risk_score ({risk_score}) >= 80 [MATCH: CRITICAL BRANCH]"
+description: "Triggered by critical indicators (high-confidence TI match, brute force, C2). Dispatches on-call analyst, recommends automated host network isolation and account lock."
+purpose: "Rapidly contain confirmed high-risk endpoint compromises, isolate active threats, and escalate immediately to Tier-2 incident responders."
+execution_mode: "DRY_RUN_SAFE_MODE"
+safety_requirements: "DRY_RUN_SAFE_MODE active. Endpoint isolation and account suspension are simulated; live infrastructure is never modified."
+expected_outcome: "Critical incident generated with status 'NEW'. Tier-2 analyst notified. Host isolation and account suspension queued in SIMULATED_PENDING_APPROVAL status."
+required_attributes:
+  - attribute: "hostname"
+    role: "Endpoint Isolation Target"
+    required: false
+    fallback: "Isolation skipped if missing or unknown-host"
+  - attribute: "username"
+    role: "Account Suspension Target"
+    required: false
+    fallback: "Suspension skipped if missing"
+  - attribute: "alert_id"
+    role: "Correlation Identifier"
+    required: true
+    fallback: "Schema validation failure"
+ordered_steps:
+  - step_num: 1
+    name: "Evaluate Risk Score & Routing Condition"
+    type: "AUTOMATED EVALUATION"
+    target: "Rule Engine"
+    approval_required: false
+    description: "Verify risk score meets Critical threshold (>=80)."
+  - step_num: 2
+    name: "Dispatch Critical Alert to On-Call Analyst"
+    type: "ANALYST DISPATCH"
+    target: "SOC_ON_CALL_TIER2"
+    approval_required: false
+    description: "Trigger urgent pager notification to Tier-2 queue."
+  - step_num: 3
+    name: "Simulate Host Endpoint Network Isolation"
+    type: "SIMULATED CONTAINMENT"
+    target: "alert.hostname"
+    approval_required: true
+    description: "Simulate network isolation command via EDR console."
+  - step_num: 4
+    name: "Simulate User Account Suspension"
+    type: "SIMULATED CONTAINMENT"
+    target: "alert.username"
+    approval_required: true
+    description: "Simulate account lock and ticket revocation in Active Directory."
+actions:
+  - type: "ANALYST_NOTIFICATION"
+    name: "SOC Analyst Escalation Dispatch"
+    approval_required: false
+  - type: "ENDPOINT_ISOLATION"
+    name: "Simulated Endpoint Network Isolation"
+    approval_required: true
+  - type: "ACCOUNT_SUSPENSION"
+    name: "Simulated Account Lock / Revocation"
+    approval_required: true
+execution_steps:
+  - step_id: "STEP-02-PAGE-ANALYST"
+    step_name: "Dispatch Critical Alert to On-Call Analyst"
+    action_type: "ANALYST_NOTIFICATION"
+    target: "SOC_ON_CALL_TIER2"
+    reason_template: "Risk Score {risk_score} exceeding Critical threshold (>=80)"
+  - step_id: "STEP-03-ISOLATE-ENDPOINT"
+    step_name: "Simulate Host Isolation for {hostname}"
+    action_type: "ENDPOINT_ISOLATION"
+    target_field: "hostname"
+    condition: "valid_hostname"
+    reason_template: "High-confidence threat indicator on endpoint (Risk: {risk_score})"
+  - step_id: "STEP-04-SUSPEND-ACCOUNT"
+    step_name: "Simulate Account Lock for {username}"
+    action_type: "ACCOUNT_SUSPENSION"
+    target_field: "username"
+    condition: "valid_username"
+    reason_template: "Account involved in Critical risk event (Risk: {risk_score})"

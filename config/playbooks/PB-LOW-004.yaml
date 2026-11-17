@@ -1,0 +1,37 @@
+playbook_id: "PB-LOW-004"
+name: "PB-LOW-004: Low-Risk Telemetry Noise Reduction & Auto-Archive"
+short_name: "Low-Risk Telemetry Noise Reduction & Auto-Archive"
+target_tier: "LOW"
+condition: "risk_score < 30"
+min_risk_score: 0
+max_risk_score: 30
+recommended_status: "AUTO_RESOLVED_INFORMATIONAL"
+matched_condition_template: "risk_score ({risk_score}) < 30 [MATCH: LOW BRANCH]"
+description: "Triggered by benign, routine, or low-severity events. Suppresses noise, auto-resolves, and writes to baseline audit logs."
+purpose: "Suppress alert fatigue by automatically verifying routine system activity and archiving telemetry to audit history."
+execution_mode: "DRY_RUN_SAFE_MODE"
+safety_requirements: "Informational logging only. Zero response actions dispatched."
+expected_outcome: "Low-priority incident generated with disposition AUTO_RESOLVED_INFORMATIONAL."
+required_attributes:
+  - attribute: "alert_id"
+    role: "Correlation Identifier"
+    required: true
+    fallback: "Schema validation failure"
+ordered_steps:
+  - step_num: 1
+    name: "Evaluate Risk Score & Routing Condition"
+    type: "AUTOMATED EVALUATION"
+    target: "Rule Engine"
+    approval_required: false
+    description: "Verify risk score falls below 30."
+  - step_num: 2
+    name: "Store Analysis Results & Update Telemetry Baselines"
+    type: "AUTO-LOGGING"
+    target: "Audit History"
+    approval_required: false
+    description: "Store results in tamper-evident log and mark disposition AUTO_RESOLVED_INFORMATIONAL."
+actions: []
+execution_steps:
+  - step_id: "STEP-02-LOG-BASELINE"
+    step_name: "Store Analysis Results & Update Telemetry Baselines"
+    output: "Archived as low-risk / informational event. No response actions required."

@@ -19,16 +19,23 @@ from modules.playbook_engine import PlaybookEngine
 from modules.incident_manager import IncidentManager
 from modules.reporter import Reporter
 from modules.execution_tracer import ExecutionTracer, PlaybookExecutionTrace
+from modules.siem_connector import MockSIEMConnector
 
 
 class SOCTriagePipeline:
     """End-to-End Orchestrator for SOC Alert Automation."""
 
-    def __init__(self, base_dir: str = "."):
+    def __init__(
+        self,
+        base_dir: str = ".",
+        incident_storage_path: Optional[str] = None,
+        use_in_memory_incidents: bool = False
+    ):
         self.base_dir = base_dir
         self.logs_dir = os.path.join(base_dir, "logs")
         self.reports_dir = os.path.join(base_dir, "reports")
         self.config_dir = os.path.join(base_dir, "config")
+        self.data_dir = os.path.join(base_dir, "data")
 
         self.audit_logger = AuditLogger(log_dir=self.logs_dir)
         self.alert_processor = AlertProcessor(audit_logger=self.audit_logger)
@@ -43,11 +50,42 @@ class SOCTriagePipeline:
         self.response_simulator = ResponseSimulator(audit_logger=self.audit_logger)
         self.playbook_engine = PlaybookEngine(
             response_simulator=self.response_simulator,
-            audit_logger=self.audit_logger
+            audit_logger=self.audit_logger,
+            playbooks_dir=os.path.join(self.config_dir, "playbooks")
         )
-        self.incident_manager = IncidentManager(audit_logger=self.audit_logger)
+
+        if use_in_memory_incidents or incident_storage_path == "":
+            inc_storage = None
+        elif incident_storage_path is not None:
+            inc_storage = incident_storage_path
+        else:
+            inc_storage = os.path.join(self.data_dir, "incidents.json")
+
+        self.incident_manager = IncidentManager(
+            audit_logger=self.audit_logger,
+            storage_path=inc_storage
+        )
         self.reporter = Reporter(reports_dir=self.reports_dir)
         self.tracer = ExecutionTracer()
+        self.siem_connector = MockSIEMConnector(
+            default_source=os.path.join(base_dir, "data", "siem_feed.json"),
+            alert_processor=self.alert_processor,
+            audit_logger=self.audit_logger
+        )
+
+    def ingest_from_siem(
+        self,
+        source_path: Optional[str] = None,
+        show_trace: bool = False,
+        force: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Ingest alerts from a mock SIEM feed file or directory."""
+        return self.siem_connector.ingest(
+            pipeline=self,
+            source_path=source_path,
+            show_trace=show_trace,
+            force=force
+        )
 
     def process_single_alert(
         self,

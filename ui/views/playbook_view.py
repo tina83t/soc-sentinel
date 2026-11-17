@@ -411,6 +411,12 @@ def render_playbook_center_view(service: SOCService, st_module=None) -> None:
             st_badge = get_status_badge_html(inc_status)
             pr_badge = get_severity_badge_html(inc_priority)
 
+            verdict_val = display_inc.get("verdict")
+            verdict_badge = f'<code style="color: #60A5FA; font-weight: 600;">{verdict_val}</code>' if verdict_val else '<span style="color: #6B7280; font-style: italic;">Unassigned (Active)</span>'
+            dup_of = display_inc.get("duplicate_of")
+            dup_info = f'<span style="color: #FBBF24; font-size: 0.74rem;">(Duplicate of {dup_of})</span>' if dup_of else ""
+            res_reason_row = f'<div style="grid-column: span 2;"><span style="color: #6B7280;">Resolution Notes:</span> <span style="color: #E5E7EB;">{display_inc.get("resolution_reason")}</span></div>' if display_inc.get("resolution_reason") else ""
+
             trace_steps = display_trace.get("steps", []) if display_trace else []
             step_table_rows = []
             for s in trace_steps:
@@ -452,11 +458,67 @@ def render_playbook_center_view(service: SOCService, st_module=None) -> None:
                     <div><span style="color: #6B7280;">Incident Reference:</span> <strong style="color: #FFFFFF; font-family: monospace;">{display_inc.get('incident_id')}</strong></div>
                     <div><span style="color: #6B7280;">Lifecycle Status:</span> {st_badge}</div>
                     <div><span style="color: #6B7280;">Priority:</span> {pr_badge}</div>
+                    <div><span style="color: #6B7280;">Analyst Verdict:</span> {verdict_badge} {dup_info}</div>
                     <div><span style="color: #6B7280;">Execution Mode:</span> <code style="color: #34D399;">DRY_RUN_SAFE_MODE</code></div>
                     <div style="grid-column: span 2;"><span style="color: #6B7280;">Simulated Action IDs:</span> <code style="color: #93C5FD;">{sim_ids_str}</code></div>
+                    {res_reason_row}
                 </div>
                 <div style="font-weight: 600; text-transform: uppercase; color: #6B7280; font-size: 0.70rem; margin-top: 0.5rem;">Step-by-Step Execution Trace</div>
                 {trace_table_html}
             </div>
             """
             st.markdown(clean_html(result_card_html), unsafe_allow_html=True)
+
+            # Structured Resolution Workflow for Active Incidents
+            inc_id = display_inc.get("incident_id")
+            if inc_id and inc_status in {"NEW", "IN_PROGRESS"}:
+                with st.expander(f"Resolve Incident {inc_id} & Assign Structured Verdict"):
+                    res_v_col, res_p_col = st.columns([1, 1])
+                    with res_v_col:
+                        verdict_options = ["TRUE_POSITIVE", "FALSE_POSITIVE", "BENIGN_POSITIVE", "DUPLICATE"]
+                        selected_verdict = st.selectbox(
+                            "Resolution Verdict",
+                            options=verdict_options,
+                            index=0,
+                            key=f"sel_verdict_{inc_id}"
+                        )
+                    with res_p_col:
+                        if selected_verdict == "DUPLICATE":
+                            other_incs = [i["incident_id"] for i in service.list_incidents() if i.get("incident_id") != inc_id]
+                            if other_incs:
+                                parent_inc = st.selectbox(
+                                    "Duplicate Of Incident",
+                                    options=other_incs,
+                                    index=0,
+                                    key=f"sel_parent_{inc_id}"
+                                )
+                            else:
+                                st.warning("No existing parent incident available to link as duplicate.")
+                                parent_inc = None
+                        else:
+                            parent_inc = None
+
+                    reason_val = st.text_input(
+                        "Resolution Reason / Findings",
+                        placeholder="State justification and investigation summary...",
+                        key=f"txt_reason_{inc_id}"
+                    )
+
+                    confirm_res = st.checkbox(
+                        f"I confirm formal resolution of {inc_id} as {selected_verdict}.",
+                        value=False,
+                        key=f"chk_confirm_res_{inc_id}"
+                    )
+
+                    can_resolve = confirm_res and bool(reason_val.strip()) and (selected_verdict != "DUPLICATE" or bool(parent_inc))
+
+                    if st.button("Complete Incident Resolution", key=f"btn_res_submit_{inc_id}", disabled=not can_resolve, use_container_width=True):
+                        service.resolve_incident(
+                            incident_id=inc_id,
+                            resolution_reason=reason_val.strip(),
+                            verdict=selected_verdict,
+                            actor="SOC_ANALYST",
+                            duplicate_of_incident_id=parent_inc
+                        )
+                        st.session_state["last_playbook_execution"] = None
+                        st.rerun()

@@ -1,3 +1,4 @@
+import shlex
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
@@ -33,35 +34,35 @@ class ResponseSimulator:
                 "risk_mitigation": "Isolate host from enterprise network to prevent lateral movement.",
                 "approval_required": True,
                 "reversibility": "Immediate (via EDR console)",
-                "recommended_command": f"edr_cli isolate-host --hostname {target} --reason '{reason}'"
+                "argv": ["edr_cli", "isolate-host", "--hostname", str(target), "--reason", str(reason)]
             },
             "ACCOUNT_SUSPENSION": {
                 "name": "Simulated Account Lock / Revocation",
                 "risk_mitigation": "Revoke active Kerberos tickets and disable user in Active Directory.",
                 "approval_required": True,
                 "reversibility": "Immediate (via IAM / AD)",
-                "recommended_command": f"ad_cli disable-user --username {target} --revoke-tokens"
+                "argv": ["ad_cli", "disable-user", "--username", str(target), "--revoke-tokens"]
             },
             "IP_BLOCK": {
                 "name": "Simulated Firewall Perimeter IP Block",
                 "risk_mitigation": "Drop inbound and outbound traffic at perimeter firewall.",
                 "approval_required": True,
                 "reversibility": "Rule expiration / manual removal",
-                "recommended_command": f"firewall_cli add-rule --action DROP --source-ip {target} --ttl 86400"
+                "argv": ["firewall_cli", "add-rule", "--action", "DROP", "--source-ip", str(target), "--ttl", "86400"]
             },
             "ANALYST_NOTIFICATION": {
                 "name": "SOC Analyst Escalation Dispatch",
                 "risk_mitigation": "Page Tier-2 on-call analyst for immediate investigation.",
                 "approval_required": False,
                 "reversibility": "N/A",
-                "recommended_command": f"pager_cli notify --queue 'SOC-TIER2' --alert {alert_id} --summary '{reason}'"
+                "argv": ["pager_cli", "notify", "--queue", "SOC-TIER2", "--alert", str(alert_id), "--summary", str(reason)]
             },
             "SECURITY_REVIEW_QUEUE": {
                 "name": "Standard Queue Assignment",
                 "risk_mitigation": "Enqueue incident for standard SLA analyst triage.",
                 "approval_required": False,
                 "reversibility": "N/A",
-                "recommended_command": f"ticketing_cli enqueue --queue 'SOC-TIER1' --id {alert_id}"
+                "argv": ["ticketing_cli", "enqueue", "--queue", "SOC-TIER1", "--id", str(alert_id)]
             }
         }
 
@@ -70,8 +71,11 @@ class ResponseSimulator:
             "risk_mitigation": "Custom mitigation action simulated.",
             "approval_required": True,
             "reversibility": "Analyst manual review",
-            "recommended_command": f"echo 'Simulate action {action_type} on {target}'"
+            "argv": ["echo", f"Simulate action {action_type} on {target}"]
         })
+
+        argv: List[str] = template["argv"]
+        recommended_command = shlex.join(argv)
 
         ResponseSimulator._global_action_counter += 1
         record = {
@@ -83,7 +87,8 @@ class ResponseSimulator:
             "parameters": parameters or {},
             "status": "SIMULATED_PENDING_APPROVAL" if template["approval_required"] else "SIMULATED_AUTO_COMPLETED",
             "approval_required": template["approval_required"],
-            "recommended_command": template["recommended_command"],
+            "argv": argv,
+            "recommended_command": recommended_command,
             "risk_mitigation_note": template["risk_mitigation"],
             "simulated_at": timestamp,
             "execution_mode": "DRY_RUN_SAFE_MODE"

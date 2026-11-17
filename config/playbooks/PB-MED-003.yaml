@@ -1,0 +1,42 @@
+playbook_id: "PB-MED-003"
+name: "PB-MED-003: Medium-Severity Triage & Telemetry Verification"
+short_name: "Medium-Severity Triage & Telemetry Verification"
+target_tier: "MEDIUM"
+condition: "30 <= risk_score < 60"
+min_risk_score: 30
+max_risk_score: 60
+recommended_status: "TRIAGE_QUEUE"
+matched_condition_template: "30 <= risk_score ({risk_score}) < 60 [MATCH: MEDIUM BRANCH]"
+description: "Triggered by suspicious but non-confirmed events or schema quality penalties. Enqueues for standard SLA investigation."
+purpose: "Route ambiguous or degraded-telemetry alerts to the standard triage queue for verification without initiating containment."
+execution_mode: "DRY_RUN_SAFE_MODE"
+safety_requirements: "Standard queue assignment. No containment or host modification simulated."
+expected_outcome: "Medium-severity incident generated with status 'NEW'. Enqueued for standard analyst investigation."
+required_attributes:
+  - attribute: "alert_id"
+    role: "Correlation Identifier"
+    required: true
+    fallback: "Schema validation failure"
+ordered_steps:
+  - step_num: 1
+    name: "Evaluate Risk Score & Routing Condition"
+    type: "AUTOMATED EVALUATION"
+    target: "Rule Engine"
+    approval_required: false
+    description: "Verify risk score meets Medium threshold (30-59)."
+  - step_num: 2
+    name: "Place Alert in Standard Triage Queue"
+    type: "QUEUE ASSIGNMENT"
+    target: "STANDARD_INVESTIGATION_QUEUE"
+    approval_required: false
+    description: "Assign alert to standard investigation queue (SLA: 4h)."
+actions:
+  - type: "SECURITY_REVIEW_QUEUE"
+    name: "Standard Queue Assignment"
+    approval_required: false
+execution_steps:
+  - step_id: "STEP-02-ENQUEUE-STANDARD"
+    step_name: "Place Alert in Standard Triage Queue"
+    action_type: "SECURITY_REVIEW_QUEUE"
+    target: "STANDARD_INVESTIGATION_QUEUE"
+    reason_template: "Risk score {risk_score} requires standard triage queue placement."

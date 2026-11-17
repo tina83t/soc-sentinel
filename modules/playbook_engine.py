@@ -1,18 +1,63 @@
-from typing import Dict, Any, List
+import os
+from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
+
 from modules.response_simulator import ResponseSimulator
+from modules.playbook_loader import PlaybookLoader
 
 
 class PlaybookEngine:
     """FortiSOAR-inspired Playbook Execution Engine.
 
-    Executes structured, conditional playbooks with traceable steps and
-    audit records.
+    Executes structured, conditional playbooks loaded dynamically from declarative
+    YAML definitions with traceable steps and audit records.
     """
 
-    def __init__(self, response_simulator: ResponseSimulator, audit_logger=None):
+    def __init__(
+        self,
+        response_simulator: ResponseSimulator,
+        audit_logger=None,
+        playbooks_dir: Optional[str] = None
+    ):
         self.response_simulator = response_simulator
         self.audit_logger = audit_logger
+
+        resolved_dir = None
+        if playbooks_dir and os.path.isdir(playbooks_dir):
+            resolved_dir = playbooks_dir
+        else:
+            # Fallback to standard config location if custom dir not populated
+            candidate = os.path.join(os.getcwd(), "config", "playbooks")
+            if os.path.isdir(candidate):
+                resolved_dir = candidate
+            else:
+                resolved_dir = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "..", "config", "playbooks")
+                )
+
+        self.playbooks_dir = resolved_dir
+        self.playbooks: List[Dict[str, Any]] = PlaybookLoader.load_playbooks_from_directory(
+            self.playbooks_dir
+        )
+
+    def get_catalog(self) -> List[Dict[str, Any]]:
+        """Retrieve all active playbook specifications in catalog format."""
+        return list(self.playbooks)
+
+    def get_playbook_by_id(self, playbook_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve playbook definition matching a specific ID."""
+        for pb in self.playbooks:
+            if pb["playbook_id"] == playbook_id:
+                return pb
+        return None
+
+    def get_playbook_for_score(self, risk_score: float) -> Dict[str, Any]:
+        """Find the matching playbook based on descending risk score thresholds."""
+        for pb in self.playbooks:
+            if risk_score >= pb.get("min_risk_score", 0):
+                return pb
+        # Fallback to last (lowest priority) playbook if none matched
+        return self.playbooks[-1]
 
     def execute_playbook(
         self,
@@ -39,138 +84,80 @@ class PlaybookEngine:
         }
         steps_executed.append(decision_step)
 
-        # Branching based on requirements
-        if risk_score >= 80:
-            matched_condition = f"risk_score ({risk_score}) >= 80 [MATCH: CRITICAL BRANCH]"
-            playbook_name = "PB-CRIT-001: Critical Threat Automated Containment & Escalation"
-            priority = "CRITICAL"
-            recommended_status = "URGENT_ATTENTION_REQUIRED"
+        # Match playbook from loaded YAML definitions
+        matched_pb = self.get_playbook_for_score(risk_score)
+        playbook_name = matched_pb["name"]
+        priority = matched_pb["target_tier"]
+        recommended_status = matched_pb["recommended_status"]
+        template = matched_pb.get(
+            "matched_condition_template",
+            f"risk_score ({risk_score}) matched {matched_pb['playbook_id']}"
+        )
+        matched_condition = template.format(risk_score=risk_score)
 
-            # Step 1: Immediate Analyst Paging
-            action_notify = self.response_simulator.simulate_action(
-                action_type="ANALYST_NOTIFICATION",
-                target="SOC_ON_CALL_TIER2",
-                reason=f"Risk Score {risk_score} exceeding Critical threshold (>=80)",
+        # Context attributes for conditional execution steps
+        target_host = alert.get("hostname")
+        target_user = alert.get("username")
+        src_ip = alert.get("source_ip")
+        src_info = enrichment.get("source_ip_context", {})
+
+        for exec_step in matched_pb.get("execution_steps", []):
+            action_type = exec_step.get("action_type")
+            if not action_type:
+                # Informational / baseline logging step
+                steps_executed.append({
+                    "step_id": exec_step["step_id"],
+                    "step_name": exec_step["step_name"],
+                    "status": "COMPLETED",
+                    "output": exec_step.get("output", "")
+                })
+                continue
+
+            # Evaluate conditional guards
+            cond = exec_step.get("condition")
+            if cond == "valid_hostname":
+                if not target_host or target_host == "unknown-host":
+                    continue
+            elif cond == "valid_username":
+                if not target_user:
+                    continue
+            elif cond == "public_or_threat_ip":
+                if not (src_ip and (src_info.get("is_public") or enrichment.get("threat_intelligence"))):
+                    continue
+
+            # Resolve target
+            target_field = exec_step.get("target_field")
+            if target_field:
+                target_val = alert.get(target_field)
+            else:
+                target_val = exec_step.get("target", "")
+
+            # Format step name and reason
+            step_name = exec_step["step_name"].format(
+                hostname=target_host or "",
+                username=target_user or "",
+                source_ip=src_ip or ""
+            )
+            reason = exec_step.get("reason_template", "").format(risk_score=risk_score)
+
+            action_result = self.response_simulator.simulate_action(
+                action_type=action_type,
+                target=target_val,
+                reason=reason,
                 alert_id=alert_id
             )
-            simulated_actions.append(action_notify)
+            simulated_actions.append(action_result)
             steps_executed.append({
-                "step_id": "STEP-02-PAGE-ANALYST",
-                "step_name": "Dispatch Critical Alert to On-Call Analyst",
+                "step_id": exec_step["step_id"],
+                "step_name": step_name,
                 "status": "COMPLETED",
-                "output": action_notify["action_name"]
-            })
-
-            # Step 2: Endpoint Isolation recommendation if hostname exists
-            target_host = alert.get("hostname")
-            if target_host and target_host != "unknown-host":
-                action_iso = self.response_simulator.simulate_action(
-                    action_type="ENDPOINT_ISOLATION",
-                    target=target_host,
-                    reason=f"High-confidence threat indicator on endpoint (Risk: {risk_score})",
-                    alert_id=alert_id
-                )
-                simulated_actions.append(action_iso)
-                steps_executed.append({
-                    "step_id": "STEP-03-ISOLATE-ENDPOINT",
-                    "step_name": f"Simulate Host Isolation for {target_host}",
-                    "status": "COMPLETED",
-                    "output": action_iso["action_name"]
-                })
-
-            # Step 3: Account lock recommendation if privileged or username given
-            target_user = alert.get("username")
-            if target_user:
-                action_lock = self.response_simulator.simulate_action(
-                    action_type="ACCOUNT_SUSPENSION",
-                    target=target_user,
-                    reason=f"Account involved in Critical risk event (Risk: {risk_score})",
-                    alert_id=alert_id
-                )
-                simulated_actions.append(action_lock)
-                steps_executed.append({
-                    "step_id": "STEP-04-SUSPEND-ACCOUNT",
-                    "step_name": f"Simulate Account Lock for {target_user}",
-                    "status": "COMPLETED",
-                    "output": action_lock["action_name"]
-                })
-
-        elif risk_score >= 60:
-            matched_condition = f"60 <= risk_score ({risk_score}) < 80 [MATCH: HIGH BRANCH]"
-            playbook_name = "PB-HIGH-002: High-Priority Incident Review & Perimeter Defense"
-            priority = "HIGH"
-            recommended_status = "PENDING_ANALYST_REVIEW"
-
-            # Step 1: Enqueue for analyst review
-            action_notify = self.response_simulator.simulate_action(
-                action_type="ANALYST_NOTIFICATION",
-                target="SOC_TIER1_QUEUE",
-                reason=f"Risk Score {risk_score} classified as HIGH. Prompt analyst review required.",
-                alert_id=alert_id
-            )
-            simulated_actions.append(action_notify)
-            steps_executed.append({
-                "step_id": "STEP-02-QUEUE-HIGH-PRIORITY",
-                "step_name": "Request Tier-1 Analyst Review",
-                "status": "COMPLETED",
-                "output": action_notify["action_name"]
-            })
-
-            # Step 2: Recommend IP block if external source IP is present
-            src_ip = alert.get("source_ip")
-            src_info = enrichment.get("source_ip_context", {})
-            if src_ip and (src_info.get("is_public") or enrichment.get("threat_intelligence")):
-                action_block = self.response_simulator.simulate_action(
-                    action_type="IP_BLOCK",
-                    target=src_ip,
-                    reason="Inbound suspicious / brute-force traffic from external IP",
-                    alert_id=alert_id
-                )
-                simulated_actions.append(action_block)
-                steps_executed.append({
-                    "step_id": "STEP-03-BLOCK-IP",
-                    "step_name": f"Simulate Perimeter IP Block for {src_ip}",
-                    "status": "COMPLETED",
-                    "output": action_block["action_name"]
-                })
-
-        elif risk_score >= 30:
-            matched_condition = f"30 <= risk_score ({risk_score}) < 60 [MATCH: MEDIUM BRANCH]"
-            playbook_name = "PB-MED-003: Medium-Severity Triage & Telemetry Verification"
-            priority = "MEDIUM"
-            recommended_status = "TRIAGE_QUEUE"
-
-            action_queue = self.response_simulator.simulate_action(
-                action_type="SECURITY_REVIEW_QUEUE",
-                target="STANDARD_INVESTIGATION_QUEUE",
-                reason=f"Risk score {risk_score} requires standard triage queue placement.",
-                alert_id=alert_id
-            )
-            simulated_actions.append(action_queue)
-            steps_executed.append({
-                "step_id": "STEP-02-ENQUEUE-STANDARD",
-                "step_name": "Place Alert in Standard Triage Queue",
-                "status": "COMPLETED",
-                "output": action_queue["action_name"]
-            })
-
-        else:
-            matched_condition = f"risk_score ({risk_score}) < 30 [MATCH: LOW BRANCH]"
-            playbook_name = "PB-LOW-004: Low-Risk Baseline Logging & Auto-Archive"
-            priority = "LOW"
-            recommended_status = "AUTO_RESOLVED_INFORMATIONAL"
-
-            steps_executed.append({
-                "step_id": "STEP-02-LOG-BASELINE",
-                "step_name": "Store Analysis Results & Update Telemetry Baselines",
-                "status": "COMPLETED",
-                "output": "Archived as low-risk / informational event. No response actions required."
+                "output": action_result["action_name"]
             })
 
         end_time = datetime.now(timezone.utc).isoformat()
 
         execution_record = {
-            "playbook_id": playbook_name.split(":")[0],
+            "playbook_id": matched_pb["playbook_id"],
             "playbook_name": playbook_name,
             "condition_evaluated": condition_evaluated,
             "matched_condition": matched_condition,

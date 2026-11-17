@@ -1,0 +1,48 @@
+[
+  {
+    "alert_id": "SIEM-ALT-2026-001",
+    "timestamp": "2026-11-06T10:15:30Z",
+    "event_type": "External Brute Force Spike",
+    "source_ip": "198.51.100.77",
+    "destination_ip": "10.0.1.5",
+    "username": "svc_backup",
+    "hostname": "auth-srv-01.corp.internal",
+    "description": "Over 100 failed Kerberos pre-authentication requests from external IP.",
+    "severity": "CRITICAL",
+    "event_source": "Enterprise SIEM (Splunk/Sentinel Mock)",
+    "additional_context": {
+      "failed_attempts_count": 105,
+      "protocol": "Kerberos"
+    }
+  },
+  {
+    "alert_id": "SIEM-ALT-2026-002",
+    "timestamp": "2026-11-06T10:18:00Z",
+    "event_type": "Suspicious PowerShell Execution",
+    "source_ip": "10.0.2.14",
+    "destination_ip": "198.51.100.99",
+    "username": "local_analyst",
+    "hostname": "wkst-fin-04.corp.internal",
+    "description": "PowerShell spawned with hidden window and base64 encoded command arguments.",
+    "severity": "HIGH",
+    "event_source": "Enterprise SIEM (EDR Telemetry Stream)",
+    "additional_context": {
+      "command_line": "powershell.exe -enc SQBFAFgA"
+    }
+  },
+  {
+    "alert_id": "SIEM-ALT-2026-003",
+    "timestamp": "2026-11-06T10:22:15Z",
+    "event_type": "Routine Vulnerability Scan Notice",
+    "source_ip": "10.0.5.20",
+    "destination_ip": "10.0.5.1",
+    "username": "scanner_svc",
+    "hostname": "sec-scanner-01.corp.internal",
+    "description": "Scheduled internal infrastructure assessment heartbeat.",
+    "severity": "LOW",
+    "event_source": "Enterprise SIEM (Vulnerability Manager)",
+    "additional_context": {
+      "scan_policy": "WeeklyBaseline"
+    }
+  }
+]

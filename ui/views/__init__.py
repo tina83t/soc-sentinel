@@ -3,6 +3,7 @@
 from ui.views.overview_view import render_overview_view, format_overview_metrics
 from ui.views.alerts_view import render_alerts_view, filter_alerts
 from ui.views.playbook_view import render_playbook_center_view, filter_playbooks
+from ui.views.pipeline_flow_view import render_pipeline_flow_view, render_pipeline_flow_component
 
 __all__ = [
     "render_overview_view",
@@ -11,4 +12,6 @@ __all__ = [
     "filter_alerts",
     "render_playbook_center_view",
     "filter_playbooks",
+    "render_pipeline_flow_view",
+    "render_pipeline_flow_component",
 ]

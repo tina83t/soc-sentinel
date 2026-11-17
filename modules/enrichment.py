@@ -1,6 +1,7 @@
 import json
 import ipaddress
 import os
+import re
 from typing import Dict, Any, List, Optional
 
 
@@ -62,23 +63,44 @@ class EnrichmentModule:
                 "source": "Simulated SOC Threat Intelligence Feed (Local)"
             }
 
-        # 3. Privileged Account Check
-        privileged_users = [u.lower() for u in self.db.get("privileged_accounts", [])]
-        is_privileged_user = (username in privileged_users) or any(p in username for p in ["admin", "root", "svc_"])
+        # 3. Privileged Account Check (Eliminate arbitrary substring matching)
+        privileged_users = {u.strip().lower() for u in self.db.get("privileged_accounts", [])}
+        clean_username = username.strip().lower()
+        base_username = clean_username.split("\\")[-1].split("@")[0]
+        is_explicit = (clean_username in privileged_users) or (base_username in privileged_users)
+        is_deliberate_pattern = (
+            base_username.startswith(("svc_", "svc-", "svc."))
+            or base_username.endswith(("_admin", "-admin"))
+        )
+        is_privileged_user = is_explicit or is_deliberate_pattern
 
         # 4. Critical Host Check
         critical_hosts = [h.lower() for h in self.db.get("critical_hosts", [])]
         is_critical_host = (hostname in critical_hosts) or any(ch in hostname for ch in ["dc0", "vault", "pki", "prod-primary"])
 
-        # 5. Suspicious Process / PowerShell Patterns
+        # 5. Suspicious Process / PowerShell Patterns (Token-aware matching)
         detected_patterns = []
         for pattern in self.db.get("suspicious_process_patterns", []):
-            if pattern.lower() in description or pattern.lower() in str(additional_ctx).lower():
+            if self._matches_process_pattern(pattern, description) or self._matches_process_pattern(pattern, str(additional_ctx)):
                 detected_patterns.append(pattern)
 
-        # 6. Failed Login Indicator
-        failed_count = additional_ctx.get("failed_attempts_count", 0)
-        is_brute_force = failed_count >= 10 or "failed" in description and "attempts" in description
+        # 6. Failed Login Indicator (Numeric threshold >= 10, no blind substring triggers)
+        raw_failed = additional_ctx.get("failed_attempts_count")
+        failed_count = 0
+        if raw_failed is not None:
+            try:
+                failed_count = int(raw_failed)
+            except (ValueError, TypeError):
+                failed_count = 0
+        else:
+            match = re.search(r"\b(\d+)\s+(?:consecutive\s+)?failed\b", description)
+            if match:
+                try:
+                    failed_count = int(match.group(1))
+                except (ValueError, TypeError):
+                    failed_count = 0
+
+        is_brute_force = failed_count >= 10
 
         enrichment_result = {
             "source_ip_context": src_ip_info,
@@ -107,6 +129,21 @@ class EnrichmentModule:
             )
 
         return enrichment_result
+
+    def _matches_process_pattern(self, pattern: str, text: str) -> bool:
+        """Token-aware pattern matching to prevent false positives like 'iexplore.exe' matching 'iex'."""
+        p = pattern.strip().lower()
+        t = text.lower()
+        if not p or not t:
+            return False
+        if " " in p:
+            return p in t
+        if p.startswith("-"):
+            flag_body = re.escape(p.lstrip("-"))
+            regex = r"(?:^|[\s\"';|()=\\,])-+" + flag_body + r"\b"
+            return bool(re.search(regex, t))
+        regex = r"\b" + re.escape(p) + r"\b"
+        return bool(re.search(regex, t))
 
     def _analyze_ip(self, ip_str: Optional[str]) -> Dict[str, Any]:
         """Determine if IP is private (RFC1918 internal), public/external, loopback, or invalid/missing."""

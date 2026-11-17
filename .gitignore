@@ -29,6 +29,7 @@ logs/*
 # Generated reports and incident exports (keep directory via .gitkeep)
 reports/*
 !reports/.gitkeep
+data/incidents.json
 
 # Testing and coverage artifacts
 .pytest_cache/

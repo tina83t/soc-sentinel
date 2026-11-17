@@ -147,9 +147,10 @@ class TestIncidentManager(unittest.TestCase):
         self.assertEqual(inc["status"], "IN_PROGRESS")
 
         # IN_PROGRESS -> RESOLVED
-        self.mgr.resolve_incident(inc_id, resolution_reason="Threat IP blocked at firewall", actor="analyst_alice")
+        self.mgr.resolve_incident(inc_id, resolution_reason="Threat IP blocked at firewall", verdict="TRUE_POSITIVE", actor="analyst_alice")
         inc = self.mgr.get_incident(inc_id)
         self.assertEqual(inc["status"], "RESOLVED")
+        self.assertEqual(inc["verdict"], "TRUE_POSITIVE")
         self.assertEqual(inc["resolution_reason"], "Threat IP blocked at firewall")
         self.assertIsNotNone(inc["resolved_at"])
 
@@ -169,9 +170,10 @@ class TestIncidentManager(unittest.TestCase):
         inc_id = self._create_sample_incident()
 
         # NEW -> RESOLVED (Direct resolution, e.g. false positive)
-        self.mgr.resolve_incident(inc_id, resolution_reason="Confirmed false positive vulnerability scan")
+        self.mgr.resolve_incident(inc_id, resolution_reason="Confirmed false positive vulnerability scan", verdict="FALSE_POSITIVE")
         inc = self.mgr.get_incident(inc_id)
         self.assertEqual(inc["status"], "RESOLVED")
+        self.assertEqual(inc["verdict"], "FALSE_POSITIVE")
 
         # RESOLVED -> IN_PROGRESS (Reopen)
         self.mgr.reopen_incident(inc_id, reason="Reopening for secondary verification")
@@ -205,7 +207,7 @@ class TestIncidentManager(unittest.TestCase):
         inc_id = self._create_sample_incident()
         self.mgr.assign_incident(inc_id, "analyst_charlie")
         self.mgr.add_note(inc_id, "Adding analyst note")
-        self.mgr.resolve_incident(inc_id, resolution_reason="Resolved")
+        self.mgr.resolve_incident(inc_id, resolution_reason="Resolved", verdict="TRUE_POSITIVE")
         self.mgr.update_status(inc_id, "CLOSED")
 
         history = self.audit_logger.history

@@ -1,0 +1,61 @@
+playbook_id: "PB-HIGH-002"
+name: "PB-HIGH-002: High-Priority Incident Review & Perimeter Defense"
+short_name: "High-Priority Incident Review & Perimeter Defense"
+target_tier: "HIGH"
+condition: "60 <= risk_score < 80"
+min_risk_score: 60
+max_risk_score: 80
+recommended_status: "PENDING_ANALYST_REVIEW"
+matched_condition_template: "60 <= risk_score ({risk_score}) < 80 [MATCH: HIGH BRANCH]"
+description: "Triggered by high-severity anomalies, privileged account anomalies, or persistent inbound traffic. Requests Tier-1 review and perimeter firewall block."
+purpose: "Halt persistent external scanning or suspicious access by queuing perimeter firewall drop rules and enqueuing for prompt analyst triage."
+execution_mode: "DRY_RUN_SAFE_MODE"
+safety_requirements: "DRY_RUN_SAFE_MODE active. Perimeter firewall block simulated with TTL 86400s. Zero live firewall changes."
+expected_outcome: "High-priority incident generated with status 'NEW'. Analyst review queued. Firewall block recommendation queued."
+required_attributes:
+  - attribute: "source_ip"
+    role: "Perimeter IP Block Target"
+    required: false
+    fallback: "Block skipped if private RFC1918 or unlisted"
+  - attribute: "alert_id"
+    role: "Correlation Identifier"
+    required: true
+    fallback: "Schema validation failure"
+ordered_steps:
+  - step_num: 1
+    name: "Evaluate Risk Score & Routing Condition"
+    type: "AUTOMATED EVALUATION"
+    target: "Rule Engine"
+    approval_required: false
+    description: "Verify risk score meets High threshold (60-79)."
+  - step_num: 2
+    name: "Request Tier-1 Analyst Review"
+    type: "ANALYST DISPATCH"
+    target: "SOC_TIER1_QUEUE"
+    approval_required: false
+    description: "Place alert in high-priority review queue for prompt analyst evaluation."
+  - step_num: 3
+    name: "Simulate Perimeter Firewall IP Block"
+    type: "SIMULATED CONTAINMENT"
+    target: "alert.source_ip"
+    approval_required: true
+    description: "Simulate perimeter firewall drop rule for external source IP (TTL: 86400s)."
+actions:
+  - type: "ANALYST_NOTIFICATION"
+    name: "Request Tier-1 Analyst Review"
+    approval_required: false
+  - type: "IP_BLOCK"
+    name: "Simulated Perimeter Firewall IP Block"
+    approval_required: true
+execution_steps:
+  - step_id: "STEP-02-QUEUE-HIGH-PRIORITY"
+    step_name: "Request Tier-1 Analyst Review"
+    action_type: "ANALYST_NOTIFICATION"
+    target: "SOC_TIER1_QUEUE"
+    reason_template: "Risk Score {risk_score} classified as HIGH. Prompt analyst review required."
+  - step_id: "STEP-03-BLOCK-IP"
+    step_name: "Simulate Perimeter IP Block for {source_ip}"
+    action_type: "IP_BLOCK"
+    target_field: "source_ip"
+    condition: "public_or_threat_ip"
+    reason_template: "Inbound suspicious / brute-force traffic from external IP"
